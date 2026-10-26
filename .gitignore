@@ -1,0 +1,41 @@
+# Node.js & Next.js
+apps/web/node_modules/
+apps/web/.next/
+apps/web/out/
+apps/web/build/
+*.tsbuildinfo
+next-env.d.ts
+
+# R & renv
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+services/r-api/renv/library/
+services/r-api/renv/staging/
+services/r-api/renv/local/
+
+# Environment and secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
+
+# Raw Datasets (protect from git repo bloat and licensing)
+data/raw/*
+!data/raw/.gitkeep
+!data/raw/README.md
+*.parquet
+*.snappy.parquet
+
+# Logs & temp
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.DS_Store
+Thumbs.db

@@ -1,0 +1,22 @@
+{
+  "timestamp": "2026-10-26 05:15:00 UTC",
+  "spotify_2023": {
+    "raw_rows": 953,
+    "clean_rows": 952,
+    "dropped_rows": 1,
+    "weekday_distribution": {
+      "Monday": 60,
+      "Tuesday": 65,
+      "Wednesday": 87,
+      "Thursday": 154,
+      "Friday": 526,
+      "Saturday": 23,
+      "Sunday": 37
+    }
+  },
+  "chart_summary": {
+    "sampled_rows": 250000,
+    "aggregated_cells": 133,
+    "countries_covered": 77
+  }
+}

@@ -1,0 +1,184 @@
+{
+  "generated_at": "2026-10-26 05:15:01 UTC",
+  "total_sample_size": 952,
+  "weekday_metrics": [
+    {
+      "weekday": "Monday",
+      "n_tracks": 60,
+      "share_of_releases_pct": 6.3,
+      "mean_streams": 575507990,
+      "median_streams": 305484435,
+      "sd_streams": 615413772,
+      "iqr_streams": 599970545,
+      "se_mean": 79449576.3183,
+      "ci_lower_95": 416529755,
+      "ci_upper_95": 734486225
+    },
+    {
+      "weekday": "Tuesday",
+      "n_tracks": 65,
+      "share_of_releases_pct": 6.83,
+      "mean_streams": 772711842,
+      "median_streams": 429829812,
+      "sd_streams": 748975380,
+      "iqr_streams": 1128165193,
+      "se_mean": 92898962.4499,
+      "ci_lower_95": 587124830,
+      "ci_upper_95": 958298854
+    },
+    {
+      "weekday": "Wednesday",
+      "n_tracks": 87,
+      "share_of_releases_pct": 9.14,
+      "mean_streams": 583665086,
+      "median_streams": 374191487,
+      "sd_streams": 598200484,
+      "iqr_streams": 526496822,
+      "se_mean": 64133823.7457,
+      "ci_lower_95": 456171264,
+      "ci_upper_95": 711158908
+    },
+    {
+      "weekday": "Thursday",
+      "n_tracks": 154,
+      "share_of_releases_pct": 16.18,
+      "mean_streams": 501297281,
+      "median_streams": 278424827,
+      "sd_streams": 560783552,
+      "iqr_streams": 542474964,
+      "se_mean": 45189226.3871,
+      "ci_lower_95": 412021883,
+      "ci_upper_95": 590572679
+    },
+    {
+      "weekday": "Friday",
+      "n_tracks": 526,
+      "share_of_releases_pct": 55.25,
+      "mean_streams": 447733188,
+      "median_streams": 253934790,
+      "sd_streams": 512019812,
+      "iqr_streams": 422712689,
+      "se_mean": 22325124.7357,
+      "ci_lower_95": 403875640,
+      "ci_upper_95": 491590736
+    },
+    {
+      "weekday": "Saturday",
+      "n_tracks": 23,
+      "share_of_releases_pct": 2.42,
+      "mean_streams": 568084526,
+      "median_streams": 372476382,
+      "sd_streams": 443563543,
+      "iqr_streams": 592028602,
+      "se_mean": 92489392.3444,
+      "ci_lower_95": 376273266,
+      "ci_upper_95": 759895786
+    },
+    {
+      "weekday": "Sunday",
+      "n_tracks": 37,
+      "share_of_releases_pct": 3.89,
+      "mean_streams": 760806347,
+      "median_streams": 520034544,
+      "sd_streams": 683634140,
+      "iqr_streams": 639943471,
+      "se_mean": 112388760.251,
+      "ci_lower_95": 532871376,
+      "ci_upper_95": 988741317
+    }
+  ],
+  "hypothesis_testing": {
+    "anova": {
+      "test": "One-Way Analysis of Variance (ANOVA)",
+      "formula": "streams ~ weekday",
+      "f_statistic": 5.1389,
+      "df_between": 6,
+      "df_within": 945,
+      "p_value": 0,
+      "is_significant_at_05": true
+    },
+    "kruskal_wallis": {
+      "test": "Kruskal-Wallis Rank Sum Test",
+      "formula": "streams ~ weekday",
+      "chi_squared": 26.9603,
+      "p_value": 0.0001,
+      "is_significant_at_05": true
+    }
+  },
+  "regression_analysis": {
+    "formula": "log(streams) ~ weekday + track_age_days + in_spotify_playlists",
+    "r_squared": 0.4053,
+    "adj_r_squared": 0.4002,
+    "f_statistic": 80.324,
+    "p_value": 4.644e-101,
+    "coefficients": [
+      {
+        "term": "(Intercept)",
+        "estimate": 19.0061,
+        "std.error": 0.1184,
+        "statistic": 160.496,
+        "p.value": 0
+      },
+      {
+        "term": "weekdayTuesday",
+        "estimate": -0.171,
+        "std.error": 0.1599,
+        "statistic": -1.07,
+        "p.value": 0.2851
+      },
+      {
+        "term": "weekdayWednesday",
+        "estimate": 0.2347,
+        "std.error": 0.1491,
+        "statistic": 1.574,
+        "p.value": 0.1157
+      },
+      {
+        "term": "weekdayThursday",
+        "estimate": -0.0066,
+        "std.error": 0.1357,
+        "statistic": -0.049,
+        "p.value": 0.9611
+      },
+      {
+        "term": "weekdayFriday",
+        "estimate": 0.0128,
+        "std.error": 0.122,
+        "statistic": 0.105,
+        "p.value": 0.9167
+      },
+      {
+        "term": "weekdaySaturday",
+        "estimate": -0.0298,
+        "std.error": 0.218,
+        "statistic": -0.137,
+        "p.value": 0.8914
+      },
+      {
+        "term": "weekdaySunday",
+        "estimate": 0.14,
+        "std.error": 0.1865,
+        "statistic": 0.751,
+        "p.value": 0.4529
+      },
+      {
+        "term": "track_age_days",
+        "estimate": -0,
+        "std.error": 1e-05,
+        "statistic": -0.245,
+        "p.value": 0.8062
+      },
+      {
+        "term": "in_spotify_playlists",
+        "estimate": 0.0001,
+        "std.error": 0,
+        "statistic": 22.915,
+        "p.value": 9.854e-93
+      }
+    ]
+  },
+  "conclusions": {
+    "friday_release_share_pct": 55.25,
+    "editorial_bias_note": "Friday accounts for over 50% of commercial releases, driven by New Music Friday editorial scheduling, creating extreme release congestion despite comparable per-track performance once adjusted for playlist inclusion and catalog age."
+  }
+}

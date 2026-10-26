@@ -1,0 +1,18 @@
+# Render Blueprint configuration for Spotify IDS R Plumber API
+services:
+  - type: web
+    name: spotify-ids-r-api
+    runtime: docker
+    dockerfilePath: services/r-api/Dockerfile
+    dockerContext: services/r-api
+    plan: free
+    region: oregon
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: API_SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_ORIGINS
+        value: "http://localhost:3000,https://*.vercel.app"
+      - key: MAX_UPLOAD_SIZE_MB
+        value: "10"
