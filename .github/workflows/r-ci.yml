@@ -1,0 +1,37 @@
+name: R Analytical CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/r-api/**'
+      - 'analysis/**'
+      - '.github/workflows/r-ci.yml'
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-r-api:
+    runs-on: ubuntu-latest
+    container: rocker/r-ver:4.3.3
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          apt-get update -qq && apt-get install -y --no-install-recommends \
+            libcurl4-openssl-dev \
+            libssl-dev \
+            libxml2-dev \
+            libsodium-dev
+
+      - name: Install R package dependencies
+        run: |
+          Rscript -e "install.packages(c('plumber', 'jsonlite', 'readr', 'dplyr', 'tidyr', 'lubridate', 'broom', 'testthat'), repos='https://cloud.r-project.org')"
+
+      - name: Run R Unit and Endpoint Tests
+        run: |
+          Rscript services/r-api/tests/run_tests.R
+          Rscript services/r-api/tests/test_api_endpoints.R
