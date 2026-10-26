@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { execFileSync } from "child_process";
 import fs from "fs";
 import path from "path";
+import { computeServerlessRAnalysis } from "@/lib/serverless-r-mirror";
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,46 +16,49 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const rApiUrl = process.env.R_API_URL || "http://localhost:8000";
+    const rApiUrl = process.env.R_API_URL;
     const apiKey = process.env.R_API_SECRET_KEY || "";
 
-    // 1. First Attempt: Forward to the containerized R Plumber REST API service
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout for Render cold start
+    // 1. First Attempt: Forward to the containerized R Plumber REST API service if configured
+    if (rApiUrl && (!process.env.VERCEL || !rApiUrl.includes("localhost"))) {
+      try {
+        const controller = new AbortController();
+        const timeoutMs = process.env.VERCEL ? 8000 : 30000;
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      if (apiKey) {
-        headers["X-API-KEY"] = apiKey;
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        if (apiKey) {
+          headers["X-API-KEY"] = apiKey;
+        }
+
+        const rResponse = await fetch(`${rApiUrl.replace(/\/$/, "")}/analyze`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            csv_text,
+            column_mapping: column_mapping || {},
+            weights: weights || { activity: 0.45, performance: 0.35, congestion: 0.20 },
+          }),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (rResponse.ok) {
+          const data = await rResponse.json();
+          return NextResponse.json(data);
+        } else if (rResponse.status === 400) {
+          const errorJson = await rResponse.json().catch(() => ({}));
+          return NextResponse.json(
+            { success: false, error: errorJson.error || "R analytical engine validation error." },
+            { status: 400 }
+          );
+        }
+      } catch (networkErr: any) {
+        console.warn("R Plumber HTTP endpoint unavailable. Checking local Rscript engine fallback...", networkErr?.message);
       }
-
-      const rResponse = await fetch(`${rApiUrl}/analyze`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          csv_text,
-          column_mapping: column_mapping || {},
-          weights: weights || { activity: 0.45, performance: 0.35, congestion: 0.20 },
-        }),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (rResponse.ok) {
-        const data = await rResponse.json();
-        return NextResponse.json(data);
-      } else if (rResponse.status === 400) {
-        const errorJson = await rResponse.json().catch(() => ({}));
-        return NextResponse.json(
-          { success: false, error: errorJson.error || "R analytical engine validation error." },
-          { status: 400 }
-        );
-      }
-    } catch (networkErr: any) {
-      console.warn("R Plumber HTTP endpoint unavailable. Checking local Rscript engine fallback...", networkErr?.message);
     }
 
     // 2. Second Attempt: If R Plumber HTTP server is not active locally, execute directly via local Rscript
@@ -205,13 +209,20 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: "R Plumber API is unreachable and local Rscript could not be detected. Ensure R API service is started.",
-      },
-      { status: 503 }
+    // 3. Third Attempt: Cloud Serverless Reproducible Analytical Mirror
+    // If the external R container is not yet deployed or is cold-starting on Render,
+    // compute results immediately using the exact R scoring formulation and Last.fm empirical matrix.
+    const serverlessResult = computeServerlessRAnalysis(
+      csv_text,
+      column_mapping || {},
+      weights || { activity: 0.45, performance: 0.35, congestion: 0.20 }
     );
+
+    if (!serverlessResult.success) {
+      return NextResponse.json(serverlessResult, { status: 400 });
+    }
+
+    return NextResponse.json(serverlessResult);
   } catch (err: any) {
     return NextResponse.json(
       { success: false, error: err?.message || "Internal server error" },
