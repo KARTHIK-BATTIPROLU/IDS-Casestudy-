@@ -8,6 +8,8 @@ suppressPackageStartupMessages({
 # Ensure we are in services/r-api/tests
 if (dir.exists("services/r-api/tests")) {
   setwd("services/r-api/tests")
+} else if (dir.exists("tests/testthat")) {
+  setwd("tests")
 } else if (file.exists("run_tests.R")) {
   # Already in tests directory
 }

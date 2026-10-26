@@ -23,14 +23,43 @@ detect_csv_delimiter <- function(text_snippet) {
 }
 
 parse_flexible_date <- function(date_vec) {
-  # Clean strings
+  if (is.null(date_vec) || length(date_vec) == 0) return(as.Date(character(0)))
   clean_str <- str_trim(as.character(date_vec))
+  parsed <- rep(as.Date(NA), length(clean_str))
   
-  # Try multiple standard formats
-  parsed <- suppressWarnings(ymd(clean_str))
-  if (all(is.na(parsed))) parsed <- suppressWarnings(dmy(clean_str))
-  if (all(is.na(parsed))) parsed <- suppressWarnings(mdy(clean_str))
-  if (all(is.na(parsed))) parsed <- suppressWarnings(as.Date(clean_str))
+  # 1. Excel serial number dates (e.g. 44927 -> 2023-01-01)
+  is_excel <- grepl("^[0-9]{4,5}$", clean_str)
+  if (any(is_excel, na.rm = TRUE)) {
+    nums <- suppressWarnings(as.numeric(clean_str[is_excel]))
+    valid_nums <- !is.na(nums) & nums >= 20000 & nums <= 60000
+    if (any(valid_nums)) {
+      parsed[is_excel][valid_nums] <- as.Date(nums[valid_nums], origin = "1899-12-30")
+    }
+  }
+  
+  # 2. Vectorized multi-order date parsing via lubridate parse_date_time
+  still_na <- is.na(parsed) & !is.na(clean_str) & clean_str != ""
+  if (any(still_na)) {
+    parsed_dt <- suppressWarnings(as.Date(parse_date_time(
+      clean_str[still_na],
+      orders = c("ymd", "dmy", "mdy", "Ymd HMS", "dmy HMS", "mdy HMS", "Ymd HM", "dmy HM", "mdy HM", "y-m-d", "d-m-y", "m-d-y"),
+      quiet = TRUE
+    )))
+    parsed[still_na] <- parsed_dt
+  }
+  
+  # 3. Individual fallback for remaining strings
+  still_na <- is.na(parsed) & !is.na(clean_str) & clean_str != ""
+  if (any(still_na)) {
+    for (i in which(still_na)) {
+      val <- clean_str[i]
+      d <- suppressWarnings(ymd(val))
+      if (is.na(d)) d <- suppressWarnings(dmy(val))
+      if (is.na(d)) d <- suppressWarnings(mdy(val))
+      if (is.na(d)) d <- suppressWarnings(as.Date(val))
+      parsed[i] <- d
+    }
+  }
   
   return(parsed)
 }
@@ -40,10 +69,31 @@ parse_flexible_time <- function(time_vec) {
   if (is.null(time_vec)) return(rep(NA_integer_, length(time_vec)))
   
   clean_str <- str_trim(as.character(time_vec))
-  # Match HH:MM or HH:MM:SS or HH
-  matched_hours <- suppressWarnings(as.integer(str_extract(clean_str, "^[0-9]{1,2}")))
-  matched_hours[matched_hours < 0 | matched_hours > 23] <- NA_integer_
-  return(matched_hours)
+  hours <- rep(NA_integer_, length(clean_str))
+  
+  for (i in seq_along(clean_str)) {
+    val <- clean_str[i]
+    if (is.na(val) || nchar(val) == 0) next
+    
+    # Handle 12-hour format with AM/PM (e.g., "02:00 PM", "2 PM", "12:00 AM")
+    if (grepl("(?i)(am|pm)", val)) {
+      is_pm <- grepl("(?i)pm", val)
+      is_am <- grepl("(?i)am", val)
+      h <- suppressWarnings(as.integer(str_extract(val, "^[0-9]{1,2}")))
+      if (!is.na(h) && h >= 1 && h <= 12) {
+        if (is_pm && h < 12) h <- h + 12
+        if (is_am && h == 12) h <- 0
+        hours[i] <- h
+      }
+    } else {
+      # Handle 24-hour format (e.g. "14:00", "09:30:00", "14")
+      h <- suppressWarnings(as.integer(str_extract(val, "^[0-9]{1,2}")))
+      if (!is.na(h) && h >= 0 && h <= 23) {
+        hours[i] <- h
+      }
+    }
+  }
+  return(hours)
 }
 
 validate_and_parse_upload <- function(raw_csv_text, column_mapping = list()) {

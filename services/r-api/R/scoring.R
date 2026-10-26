@@ -9,7 +9,9 @@ suppressPackageStartupMessages({
 # Load or generate baseline listening grid
 get_baseline_listening_grid <- function() {
   candidate_paths <- c(
+    "data/hourly_listening_summary.json",
     "data/processed/hourly_listening_summary.json",
+    "../data/hourly_listening_summary.json",
     "../../data/processed/hourly_listening_summary.json",
     "../../../data/processed/hourly_listening_summary.json"
   )

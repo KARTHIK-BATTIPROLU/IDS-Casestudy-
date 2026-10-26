@@ -1,0 +1,160 @@
+---
+title: "Spotify Listener Behaviour Analysis and Optimal Release-Window Advisor"
+subtitle: "Academic Case Study Report"
+author: "Karthik Battiprolu (Roll No. ugs24304_aid.battiprolu@cbit.org.in)"
+institution: "Chaitanya Bharathi Institute of Technology (CBIT), Hyderabad"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    theme: cosmo
+    highlight: tango
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(dplyr)
+library(readr)
+library(broom)
+library(jsonlite)
+```
+
+# Executive Summary / Abstract
+
+In the contemporary music streaming economy, independent artists and record labels routinely schedule new releases for Friday at 00:00 UTC. While historically initiated by the International Federation of the Phonographic Industry (IFPI) in 2015 to coordinate physical charting cycles and weekly editorial playlist schedules (such as Spotify's *New Music Friday*), this ubiquitous standard generates extreme release congestion. 
+
+This case study empirically analyzes the validity of the universal Friday release convention using real timestamped listening logs (Last.fm 1K user corpus, $N = 500,000$ events) and global Spotify track outcome data ($N = 952$ cleaned tracks). We conduct exploratory data profiling, parametric One-Way ANOVA, Kruskal-Wallis non-parametric rank tests, and confounder-adjusted multiple Ordinary Least Squares (OLS) regression in R.
+
+Our empirical findings demonstrate:
+1. **The Friday Paradox:** Although Friday accounts for **55.25% of commercial releases**, our age-adjusted and playlist-controlled regression reveals that the independent marginal effect of Friday on cumulative streams is **statistically insignificant** ($\beta = 0.0128, p = 0.9167$). Friday releases exhibit the lowest median stream counts ($253.9\text{M}$) due to hyper-competitive clutter.
+2. **Real-Time Streaming Velocity:** Global listener streaming activity peaks during **Tuesday through Thursday afternoons (14:00 - 18:00 UTC)**, where listener attention is intense while new release drops drop by up to 75%.
+3. **Decision-Support Software:** We engineered and containerized an end-to-end web platform featuring a Next.js 14 App Router frontend and an R Plumber REST API. Uploaded artist catalogs undergo in-memory statistical evaluation, sample size gating ($N < 5$ descriptive only, $5 \le N < 20$ non-parametric medians, $N \ge 20$ full parametric CIs), and multi-criteria window ranking with zero row persistence.
+
+---
+
+# Introduction & Problem Formulation
+
+## The Industry Dilemma
+For over a decade, commercial music distribution has adhered to a rigid temporal norm: "Drop on Friday at midnight." For major label artists with guaranteed placement on high-impact editorial playlists (e.g., *Today's Top Hits*, *New Music Friday*), this strategy maximizes the 7-day tracking window for national charts (such as the Billboard Hot 100 or UK Official Singles Chart).
+
+However, for independent artists, unsigned creators, and emerging catalog owners, Friday release scheduling presents severe unmitigated risks:
+- **Severe Attention Bottleneck:** Thousands of global singles drop within the same 60-minute window, saturating playlist editor inboxes and social media feeds.
+- **Algorithmic Drowning:** Recommendation systems (Release Radar, algorithmic radio) must distribute impression bandwidth across an extraordinarily concentrated batch of competing tracks.
+
+## Core Research Hypotheses
+- **Hypothesis 1 ($H_1$):** Real-time listener streaming activity does not concentrate exclusively on weekends; sustained high-velocity consumption occurs mid-week during working/daytime hours.
+- **Hypothesis 2 ($H_2$):** The historical streaming superiority commonly attributed to Friday releases is mediated by catalog age and editorial playlist placement rather than an inherent day-of-week demand phenomenon.
+- **Hypothesis 3 ($H_3$):** Combining empirical listening activity, historical performance distributions, and release congestion penalties into a transparent decision-support heuristic yields superior release timing alternatives.
+
+---
+
+# Dataset Provenance & Data Hygiene Audit
+
+## Raw Datasets Audited
+The research pipeline relies on three empirical datasets audited in R (`analysis/01_audit_data.R`):
+1. **Spotify Most Streamed Songs 2023 (`spotify_2023_tracks.csv`):** 953 raw tracks with release dates, cumulative streams, playlist appearances, and audio descriptors.
+2. **Spotify Historical Daily Charts (`spotify_chart_historical.csv`):** Multi-market daily chart positions and streaming volume.
+3. **Last.fm 1K User Listening Corpus (`lastfm_listening_sample.parquet`):** 500,000 real timestamped listening events with microsecond UTC precision.
+
+## Data Cleaning & Anomaly Resolution
+During rigorous profiling in `analysis/02_clean_data.R`, we discovered a critical data corruption issue in the raw Spotify 2023 dataset:
+- **Outlier Detection:** Track 575 (*Love Grows (Where My Rosemary Goes)*) contained concatenated text attributes (`BPM110KeyAModeMajor...`) inside the `streams` column. Naive regex digit-stripping produced an astronomical stream count of $71,812,624,203$ ($71.8\text{B}$), distorting the Thursday parametric mean.
+- **Hygiene Resolution:** We implemented strict numerical coercion (`suppressWarnings(as.numeric(streams))`), correctly dropping this corrupted record ($N = 952$ clean tracks).
+- **Date Standardization:** Reconstructed ISO dates from `released_year`, `released_month`, and `released_day`, deriving ordered weekday factors and catalog age relative to the year-end snapshot (December 31, 2023).
+
+---
+
+# Exploratory Data Analysis & Empirical Listening Dynamics
+
+```{r load_data}
+tracks_path <- "../data/processed/clean_spotify_2023.csv"
+if (!file.exists(tracks_path)) tracks_path <- "data/processed/clean_spotify_2023.csv"
+
+df_tracks <- read_csv(tracks_path, show_col_types = FALSE)
+cat(sprintf("Loaded %d clean Spotify tracks.\n", nrow(df_tracks)))
+```
+
+## Release Performance by Weekday
+```{r weekday_summary}
+weekday_order <- c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+df_tracks$release_weekday <- factor(df_tracks$release_weekday, levels = weekday_order)
+
+summary_table <- df_tracks %>%
+  group_by(release_weekday) %>%
+  summarise(
+    n_tracks = n(),
+    pct_share = round((n() / nrow(df_tracks)) * 100, 2),
+    mean_streams_m = round(mean(streams_num, na.rm = TRUE) / 1e6, 1),
+    median_streams_m = round(median(streams_num, na.rm = TRUE) / 1e6, 1),
+    ci_lower_m = round((mean(streams_num, na.rm = TRUE) - qt(0.975, df = n() - 1) * (sd(streams_num, na.rm = TRUE) / sqrt(n()))) / 1e6, 1),
+    ci_upper_m = round((mean(streams_num, na.rm = TRUE) + qt(0.975, df = n() - 1) * (sd(streams_num, na.rm = TRUE) / sqrt(n()))) / 1e6, 1),
+    .groups = "drop"
+  )
+
+knitr::kable(summary_table, col.names = c("Weekday", "Track Count", "Share (%)", "Mean (M)", "Median (M)", "CI Lower (M)", "CI Upper (M)"))
+```
+
+---
+
+# Statistical Modeling & Hypothesis Testing
+
+## One-Way ANOVA and Kruskal-Wallis Rank Sum Test
+
+```{r hypothesis_tests}
+# Parametric ANOVA
+anova_fit <- aov(streams_num ~ release_weekday, data = df_tracks)
+anova_summary <- tidy(anova_fit)
+print(anova_summary)
+
+# Non-parametric Kruskal-Wallis
+kw_fit <- kruskal.test(streams_num ~ release_weekday, data = df_tracks)
+print(kw_fit)
+```
+
+## Confounder-Adjusted Multiple OLS Regression
+
+```{r regression_model}
+ols_fit <- lm(
+  log(streams_num) ~ release_weekday + track_age_days + in_spotify_playlists,
+  data = df_tracks
+)
+ols_summary <- summary(ols_fit)
+print(tidy(ols_fit))
+cat(sprintf("\nModel R-squared: %.4f | Adj R-squared: %.4f\n", ols_summary$r.squared, ols_summary$adj.r.squared))
+```
+
+**Statistical Finding:** After adjusting for playlist inclusion and track catalog age, the coefficient for Friday is $\beta = 0.0128$ ($p = 0.9167$), indicating that release weekday per se exhibits no statistically significant independent advantage.
+
+---
+
+# Software Architecture & Implementation
+
+## System Architecture
+The application is structured as a professional Git monorepo:
+- **`apps/web`:** Next.js 14 App Router, TypeScript, Tailwind CSS, Lucide React, and Recharts. Deployed to Vercel.
+- **`services/r-api`:** R Plumber REST API, containerized via Docker (`rocker/r-ver:4.3.3`) for deployment to Render.
+- **`analysis/`:** Modular, reproducible R analysis scripts producing verifiable summaries in `data/processed/`.
+- **`reports/`:** Formal academic deliverables and presentation slide decks.
+- **`.github/workflows/`:** Automated CI pipelines running R `testthat` suites and Next.js production builds on every push.
+
+## Zero-Storage Privacy Policy
+Uploaded artist release records are parsed and evaluated strictly in RAM by the R analytical service (`services/r-api/R/validator.R`, `R/stats.R`, `R/scoring.R`). No rows are stored to permanent databases or persistent file storage.
+
+---
+
+# Strategic Recommendations
+
+1. **Major Label / High-Pitch Artists:** Retain Friday 00:00 UTC releases only when confirmed editorial playlist placement (e.g., *New Music Friday*, *Today's Top Hits*) has been secured.
+2. **Independent & Emerging Artists:** Pivot to **Tuesday or Wednesday afternoon windows (14:00 - 17:00 UTC)**. These windows capture high global listener traffic while avoiding 75% of global drop competition.
+3. **Transparent Decision Support:** Respect sample size gates ($N < 5$ descriptive only, $5 \le N < 20$ non-parametric medians with uncertainty penalty, $N \ge 20$ full parametric inference).
+
+---
+
+# References
+
+1. International Federation of the Phonographic Industry (IFPI). "New Music Fridays: Global Release Day Initiative." *IFPI Industry Report*, 2015.
+2. Celma, Òscar. *Music Recommendation and Discovery in the Long Tail*. Springer, 2010.
+3. Nelgiriyewithana, N. "Top Spotify Songs 2023." *Kaggle Datasets*, 2023.
+4. Freyberg, J. "Spotify Daily Worldwide Chart Data." *Kaggle Datasets*, 2022.

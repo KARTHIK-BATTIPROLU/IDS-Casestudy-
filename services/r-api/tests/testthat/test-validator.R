@@ -21,6 +21,24 @@ test_that("parse_flexible_date correctly parses multiple formats", {
   parsed_dmy <- parse_flexible_date(dates_dmy)
   expect_false(any(is.na(parsed_dmy)))
   expect_equal(as.character(parsed_dmy[1]), "2023-01-15")
+  
+  # Mixed formats in single vector
+  dates_mixed <- c("2023-01-15", "16/01/2023", "01/20/2023")
+  parsed_mixed <- parse_flexible_date(dates_mixed)
+  expect_false(any(is.na(parsed_mixed)))
+  expect_equal(as.character(parsed_mixed), c("2023-01-15", "2023-01-16", "2023-01-20"))
+  
+  # Excel serial dates
+  dates_excel <- c("44927", "44928") # 2023-01-01, 2023-01-02
+  parsed_excel <- parse_flexible_date(dates_excel)
+  expect_false(any(is.na(parsed_excel)))
+  expect_equal(as.character(parsed_excel), c("2023-01-01", "2023-01-02"))
+})
+
+test_that("parse_flexible_time correctly handles 12h AM/PM and 24h formats", {
+  times_raw <- c("02:00 PM", "14:00", "12:00 AM", "12:00 PM", "9:30 AM", "23:59")
+  parsed_times <- parse_flexible_time(times_raw)
+  expect_equal(parsed_times, c(14L, 14L, 0L, 12L, 9L, 23L))
 })
 
 test_that("validate_and_parse_upload handles valid fixture cleanly", {

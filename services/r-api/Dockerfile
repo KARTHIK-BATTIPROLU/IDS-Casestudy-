@@ -14,7 +14,8 @@ RUN R -e "install.packages(c('plumber', 'jsonlite', 'readr', 'dplyr', 'tidyr', '
 
 WORKDIR /app
 
-# Copy service code
+# Copy service code and analytical baseline data
+COPY data/ /app/data/
 COPY R/ /app/R/
 COPY api.R /app/api.R
 COPY run_api.R /app/run_api.R
